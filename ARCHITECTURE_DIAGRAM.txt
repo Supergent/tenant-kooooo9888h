@@ -1,0 +1,182 @@
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         TASK MANAGER APPLICATION                         │
+│                   AI-Powered Todo List with Real-time Updates            │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              FRONTEND LAYER                              │
+│                         Next.js 15 App Router                            │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                  │
+│  │  Auth Pages  │  │  Task List   │  │  Dashboard   │                  │
+│  │  signin/up   │  │  Component   │  │  Stats       │                  │
+│  └──────────────┘  └──────────────┘  └──────────────┘                  │
+│         │                  │                  │                          │
+│         └──────────────────┴──────────────────┘                          │
+│                            │                                             │
+│                  ┌─────────▼──────────┐                                  │
+│                  │ ConvexProvider     │                                  │
+│                  │ + Better Auth      │                                  │
+│                  └────────────────────┘                                  │
+└─────────────────────────┬───────────────────────────────────────────────┘
+                          │ Real-time WebSocket
+┌─────────────────────────▼───────────────────────────────────────────────┐
+│                          CONVEX BACKEND                                  │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                           ENDPOINT LAYER                                 │
+│              Business Logic + Auth + Rate Limiting                       │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  endpoints/tasks.ts                                          │       │
+│  │  • create, list, listByStatus, upcoming, overdue            │       │
+│  │  • get, update, complete, remove                            │       │
+│  │  ✓ Auth checks  ✓ Rate limiting  ✓ Validation              │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  endpoints/assistant.ts                                      │       │
+│  │  • createThread, listThreads, getThread                     │       │
+│  │  • updateThread, deleteThread, sendMessage                  │       │
+│  │  ✓ Auth checks  ✓ Rate limiting  ✓ AI integration           │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  endpoints/dashboard.ts                                      │       │
+│  │  • summary, recent, taskStats                               │       │
+│  │  ✓ Auth checks  ✓ Aggregation queries                       │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│                    Imports from ↓ Database Layer                         │
+└─────────────────────────┬───────────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────────────┐
+│                          DATABASE LAYER                                  │
+│                ONLY place where ctx.db is used                           │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  db/tasks.ts                                                 │       │
+│  │  • createTask, getTaskById, getTasksByUser                  │       │
+│  │  • getTasksByUserAndStatus, getUpcomingTasks               │       │
+│  │  • updateTask, markTaskCompleted, deleteTask               │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  db/threads.ts                                               │       │
+│  │  • createThread, getThreadById, getThreadsByUser            │       │
+│  │  • updateThread, archiveThread, deleteThread                │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  db/messages.ts                                              │       │
+│  │  • createMessage, getMessagesByThread                        │       │
+│  │  • getRecentMessagesByThread, deleteMessage                 │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  db/dashboard.ts                                             │       │
+│  │  • loadSummary, loadRecent                                  │       │
+│  │  • Dynamic table queries with type assertions               │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│                    Accesses ↓ Convex Database                            │
+└─────────────────────────┬───────────────────────────────────────────────┘
+                          │
+┌─────────────────────────▼───────────────────────────────────────────────┐
+│                      CONVEX DATABASE SCHEMA                              │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────┐               │
+│  │   tasks     │     │   threads   │     │  messages   │               │
+│  ├─────────────┤     ├─────────────┤     ├─────────────┤               │
+│  │ userId      │     │ userId      │     │ threadId    │               │
+│  │ title       │     │ title?      │     │ userId      │               │
+│  │ description?│     │ status      │     │ role        │               │
+│  │ status      │     │ createdAt   │     │ content     │               │
+│  │ priority?   │     │ updatedAt   │     │ createdAt   │               │
+│  │ dueDate?    │     └─────────────┘     └─────────────┘               │
+│  │ completedAt?│                                                         │
+│  │ createdAt   │     Indexes:              Index:                       │
+│  │ updatedAt   │     • by_user             • by_thread                  │
+│  └─────────────┘     • by_user_and_status                               │
+│                                                                           │
+│  Indexes:                                                                │
+│  • by_user                                                               │
+│  • by_user_and_status                                                    │
+│  • by_user_and_due_date                                                  │
+│                                                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                            HELPER LAYER                                  │
+│                    Pure Utilities (No DB Access)                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  helpers/validation.ts                                       │       │
+│  │  • isValidTaskTitle, isValidTaskDescription                 │       │
+│  │  • isValidDueDate, sanitizeInput                            │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+│  ┌──────────────────────────────────────────────────────────────┐       │
+│  │  helpers/constants.ts                                        │       │
+│  │  • MAX_TASKS_PER_USER, MAX_THREADS_PER_USER                │       │
+│  │  • VALID_STATUS_TRANSITIONS                                 │       │
+│  └──────────────────────────────────────────────────────────────┘       │
+│                                                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     CONVEX COMPONENTS INTEGRATION                        │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                           │
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐            │
+│  │  Better Auth   │  │  Rate Limiter  │  │  AI Agent      │            │
+│  ├────────────────┤  ├────────────────┤  ├────────────────┤            │
+│  │ • Email/Pass   │  │ • Token Bucket │  │ • Claude/GPT   │            │
+│  │ • Sessions     │  │ • User-scoped  │  │ • Contextual   │            │
+│  │ • JWT (30d)    │  │ • 20-50/min    │  │ • Task-aware   │            │
+│  └────────────────┘  └────────────────┘  └────────────────┘            │
+│                                                                           │
+└─────────────────────────────────────────────────────────────────────────┘
+
+KEY ARCHITECTURAL PRINCIPLES:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ ctx.db ONLY in Database Layer
+✓ Endpoints compose DB functions, NEVER access ctx.db directly
+✓ All mutations have authentication checks
+✓ All mutations have rate limiting
+✓ All inputs validated with helpers
+✓ User ownership verified on all operations
+✓ Real-time updates via Convex subscriptions
+✓ Type-safe throughout (100% TypeScript)
+
+IMPLEMENTATION STATS:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Database Layer:     5 files  (~500 LOC)
+Endpoint Layer:     3 files  (~550 LOC)
+Helper Layer:       2 files  (~100 LOC)
+Configuration:      3 files  (~150 LOC)
+Frontend:           6 files  (~400 LOC)
+─────────────────────────────────────────
+Total:             19 files (~1,700 LOC)
+
+FEATURES IMPLEMENTED:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+✓ User Authentication (signup/signin/signout)
+✓ Task CRUD (create, read, update, delete)
+✓ Status filtering (pending, in progress, completed)
+✓ Task statistics dashboard
+✓ AI assistant with conversation threads
+✓ Rate limiting on all mutations
+✓ Real-time updates across all clients
+✓ Responsive UI with Tailwind + shadcn/ui
+
+STATUS: ✅ PHASE 2 COMPLETE - READY TO RUN!
